@@ -16,6 +16,8 @@ import usb.util
 from usb.core import USBError
 from collections import namedtuple
 
+import argparse
+
 # unoptimized, translated from http://mdfs.net/Info/Comp/Comms/CRC16.htm
 def crc16(data, poly=0x1021, iv=0x0000, xorf=0x0000):
     crc = int(iv)
@@ -42,6 +44,17 @@ def hexdump_line(data):
                                    ' '.join(hexbytes[8:]),
                                    printable[:8],
                                    printable[8:])
+
+def hexdump_iterlines(data, start=0):
+    offset = 0
+    while offset < len(data):
+        yield "{:08x}  {}".format(start+offset,
+                                  hexdump_line(data[offset:offset+0x10]))
+
+def hexdump(data, start=0):
+    for line in hexdump_iterlines(data, start):
+        print(line)
+
 # USB Packet Structure:
 #
 # Data is usually sent to endpoint 4, and the device answers on endpoint 3.
@@ -442,34 +455,55 @@ fw_finalize_packets = {fwid:{p:fw_finalize_packet(*p) for p in pairs}
                        for fwid,pairs in fw_finalize_values.items()}
 
 
-# TODO: argparse rather than this janky arg parsing
-def main(args):
-    if not args:
-        print("usage: gk64.py [probe|fwup BINFILE|cmd CMDNUM SUBCMDNUM]")
-    elif len(args) == 1 and args[0] == "probe":
-        probe_loop()
-    elif len(args) >= 2 and args[0] == "readmem_hax":
-        offset = int(args[1], base=0)
-        print("hax reading offset={:#x}".format(offset))
-        kbd = GK64()
-        r = kbd.send_cmd(4,1,offset=offset & 0xffff, length=offset >> 16)
-        print(r)
-        print(r._hexdump())
-        #print(kbd.read_memory_hax(offset)._hexdump())
+def memaddr(s):
+    addr = int(s, 16)
+    if addr > 0xffffff:
+        raise ValueError
+    return addr
 
-    elif len(args) >= 2 and args[0] == "fwdump":
-        offset = 0
-        end = 0x10000
-        if len(args) >= 4:
-            try:
-                offset, end = int(args[2], 0), int(args[3], 0)
-            except ValueError:
-                print("can't parse args :<")
-                raise SystemExit(2)
-        kbd = GK64()
+def parse_args():
+    parser = argparse.ArgumentParser(description='GK6x firmware tool')
+    subp = parser.add_subparsers(
+        description="(commands marked with a * require modified firmware)")
+
+    fwup = subp.add_parser("fwup", help="send a firmware update")
+    fwup.add_argument("action", action="store_const", const="fwup", help=argparse.SUPPRESS)
+    fwup.add_argument("binfile", help="firmware binary (w/o header)")
+    fwup.add_argument("--header", help="firmware header")
+
+    cmd = subp.add_parser('cmd', help="send command packet")
+    cmd.add_argument("action", action="store_const", const="cmd", help=argparse.SUPPRESS)
+    cmd.add_argument("cmd", type=int, help="command number")
+    cmd.add_argument("sub", type=int, help="sub-command number")
+
+    peek = subp.add_parser('peek', help="* peek at a memory address")
+    peek.add_argument("action", action="store_const", const="peek", help=argparse.SUPPRESS)
+    peek.add_argument("offset", type=memaddr, help="memory address to peek at")
+
+    dump = subp.add_parser('dump', help="* dump memory to a file")
+    dump.add_argument("action", action="store_const", const="dump", help=argparse.SUPPRESS)
+    dump.add_argument("start", type=memaddr, help="start address")
+    dump.add_argument("end", type=memaddr, help="end address")
+    dump.add_argument("outfile", help="output filename")
+
+    args = parser.parse_args()
+
+    return args
+
+def main(args):
+    kbd = GK64()
+    if args.action == "cmd":
+        print(kbd.send_cmd(args.cmd, args.sub)._hexdump())
+
+    elif args.action == "peek":
+        hexdump(kbd.read_memory_hax(args.offset), args.offset)
+
+    elif args.action == "dump":
         size = 0x38
         overlap = 0
-        with open(args[1]+".flash", 'wb+') as flash_out:
+        offset = args.start
+        end = args.end
+        with open(args.outfile, 'wb+') as flash_out:
             while offset < end:
                 print("hax reading flash: {:#x}".format(offset), end='\n', flush=True)
                 # check to make sure we don't read past end, because bad things
@@ -484,16 +518,16 @@ def main(args):
                 flash_out.write(chunk)
                 offset += len(chunk)
             print()
-    elif len(args) >= 2 and args[0] == "fwup":
-        kbd = GK64()
+
+    elif args.action == "fwup":
         print("reading firmware data: ", end='', flush=True)
         # TODO: checksum while reading
-        bindata = binfile_read(args[1])
+        bindata = binfile_read(args.binfile)
         print("ok, size {}, checksum {:04X}".format(len(bindata), mycrc16(bindata)))
         hdr = None
-        if len(args) >= 3:
+        if args.header:
             print("reading firmware header: ", end='', flush=True)
-            hdrdata = open(args[2],'rb').read(0x20)
+            hdrdata = open(args.header,'rb').read(0x20)
             hdr = BImgHdr._unpack(hdrdata)
         else:
             print("building firmware header: ", end='', flush=True)
@@ -530,20 +564,10 @@ def main(args):
             if fwup_ok:
                 print("firmware updated successfully! have fun!!!!")
 
-    elif len(args) == 3 and args[0] == "cmd":
-        try:
-            cmd = int(args[1])
-            sub = int(args[2])
-            kbd = GK64()
-            print(kbd.send_cmd(cmd,sub)._hexdump())
-        except ValueError:
-            print("error: invalid integer in args {!r}".format(args[:2]))
-            raise SystemExit(2)
-
 if __name__ == '__main__':
-    import sys
     try:
-        main(sys.argv[1:])
+        args = parse_args()
+        main(args)
     except KeyboardInterrupt:
         raise SystemExit(1)
     except OSError as e:
