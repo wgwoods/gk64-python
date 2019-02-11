@@ -6,33 +6,42 @@
 ;Disassembly of section .data:
 ;
 ;00000000 <.data>:
-       0:	48 00 10 0c 	j 0x2018
-       4:	48 00 00 30 	j 0x64
-       8:	48 00 00 2e 	j 0x64
-       c:	48 00 00 2c 	j 0x64
-      10:	48 00 00 2a 	j 0x64
-      14:	48 00 00 48 	j 0xa4
-      18:	48 00 00 67 	j 0xe6
-      1c:	48 00 00 86 	j 0x128
-      20:	48 00 00 a5 	j 0x16a
-      24:	48 00 00 d7 	j 0x1d2
-      28:	48 00 01 3c 	j 0x2a0
-      2c:	48 00 01 3e 	j 0x2a8
-      30:	48 00 01 40 	j 0x2b0
-      34:	48 00 01 42 	j 0x2b8
-      38:	48 00 01 44 	j 0x2c0
-      3c:	48 00 01 46 	j 0x2c8
-      40:	44 20 00 00 	movi $r2,#0x0
-      44:	44 20 00 00 	movi $r2,#0x0
-      48:	44 20 00 00 	movi $r2,#0x0
-      4c:	44 20 00 00 	movi $r2,#0x0
-      50:	44 20 00 00 	movi $r2,#0x0
-      54:	b0 12       	addri36.sp $r0,#0x48
-      56:	00 00 9c 12 	lbi $r0,[$r1+#0x1c12]
-      5a:	00 00 44 20 	lbi $r0,[$r0+#-15328]
-      5e:	00 00 44 20 	lbi $r0,[$r0+#-15328]
-      62:	00 00 3a 0f 	lbi $r0,[$r0+#0x3a0f]
-      66:	94 3c       	slli333 $r0,$r7,#0x4
+
+; ---- interrupt vector table
+       0:	48 00 10 0c 	j 0x2018  ; reset/NMI/_entry()
+       4:	48 00 00 30 	j 0x64    ; TLB fill
+       8:	48 00 00 2e 	j 0x64    ; PTE not present
+       c:	48 00 00 2c 	j 0x64    ; TLB misc
+      10:	48 00 00 2a 	j 0x64    ; TLB VPLT miss
+      14:	48 00 00 48 	j 0xa4    ; Machine Error
+      18:	48 00 00 67 	j 0xe6    ; Debug Related
+      1c:	48 00 00 86 	j 0x128   ; General Exception
+      20:	48 00 00 a5 	j 0x16a   ; Syscall
+      24:	48 00 00 d7 	j 0x1d2   ; HW0
+      28:	48 00 01 3c 	j 0x2a0   ; HW1
+      2c:	48 00 01 3e 	j 0x2a8   ; HW2
+      30:	48 00 01 40 	j 0x2b0   ; HW3
+      34:	48 00 01 42 	j 0x2b8   ; HW4
+      38:	48 00 01 44 	j 0x2c0   ; HW5
+      3c:	48 00 01 46 	j 0x2c8   ; SW0
+
+; ---- In the firmware image we have this is some kind of data - or maybe a
+; ---- vector table / pointer table in little-endian?
+
+      40:	44 20 00 00
+      44:	44 20 00 00
+      48:	44 20 00 00
+      4c:	44 20 00 00
+      50:	44 20 00 00
+      54:	b0 12 00 00
+      58:       9c 12 00 00
+      5c:	44 20 00 00
+      60:	44 20 00 00
+
+; ---- NOTE: all these are the same except $r0, and they all jump to 0x2044
+
+; ---- TLB fill / PTE not present etc - $r0 = 
+      64:	3a 0f 94 3c 	smw.adm $r0,[$sp],$r5,#0x0    ! {$r0~$r5}
       68:	3a ff bf bc 	smw.adm $r15,[$sp],$r15,#0xe    ! {$r15, $fp, $gp, $lp}
       6c:	64 02 00 02 	mfsr $r0,$psw
       70:	64 12 a4 02 	mfsr $r1,$ipc
@@ -49,6 +58,8 @@
       9a:	46 f0 00 02 	sethi $r15,#0x2
       9e:	58 f7 80 44 	ori $r15,$r15,#0x44
       a2:	dd 0f       	jr5 $r15
+
+; ---- "Machine Error" handler
       a4:	3a 0f 94 3c 	smw.adm $r0,[$sp],$r5,#0x0    ! {$r0~$r5}
       a8:	3a ff bf bc 	smw.adm $r15,[$sp],$r15,#0xe    ! {$r15, $fp, $gp, $lp}
       ac:	64 02 00 02 	mfsr $r0,$psw
@@ -66,7 +77,9 @@
       da:	84 05       	movi55 $r0,#0x5
       dc:	46 f0 00 02 	sethi $r15,#0x2
       e0:	58 f7 80 44 	ori $r15,$r15,#0x44
-      e4:	dd 0f       	jr5 $r15
+      e4:	dd 0f       	jr5 $r15                      ; $r0 = 5
+
+; ---- "Debug related" handler
       e6:	3a 0f 94 3c 	smw.adm $r0,[$sp],$r5,#0x0    ! {$r0~$r5}
       ea:	3a ff bf bc 	smw.adm $r15,[$sp],$r15,#0xe    ! {$r15, $fp, $gp, $lp}
       ee:	64 02 00 02 	mfsr $r0,$psw
@@ -84,7 +97,9 @@
      11c:	84 06       	movi55 $r0,#0x6
      11e:	46 f0 00 02 	sethi $r15,#0x2
      122:	58 f7 80 44 	ori $r15,$r15,#0x44
-     126:	dd 0f       	jr5 $r15
+     126:	dd 0f       	jr5 $r15               ; $r0 = 6
+
+; ---- General Exception
      128:	3a 0f 94 3c 	smw.adm $r0,[$sp],$r5,#0x0    ! {$r0~$r5}
      12c:	3a ff bf bc 	smw.adm $r15,[$sp],$r15,#0xe    ! {$r15, $fp, $gp, $lp}
      130:	64 02 00 02 	mfsr $r0,$psw
@@ -102,16 +117,18 @@
      15e:	84 07       	movi55 $r0,#0x7
      160:	46 f0 00 02 	sethi $r15,#0x2
      164:	58 f7 80 44 	ori $r15,$r15,#0x44
-     168:	dd 0f       	jr5 $r15
+     168:	dd 0f       	jr5 $r15               ; $r0 = 7
+
+; ---- Syscall:
      16a:	3a 0f 94 3c 	smw.adm $r0,[$sp],$r5,#0x0    ! {$r0~$r5}
      16e:	3a ff bf bc 	smw.adm $r15,[$sp],$r15,#0xe    ! {$r15, $fp, $gp, $lp}
      172:	64 02 00 02 	mfsr $r0,$psw
      176:	64 12 a4 02 	mfsr $r1,$ipc
      17a:	9c 4c       	addi333 $r1,$r1,#0x4
      17c:	64 22 04 02 	mfsr $r2,$ipsw
-     180:	3a 0f 88 3c 	smw.adm $r0,[$sp],$r2,#0x0    ! {$r0~$r2}
-     184:	42 00 04 09 	bclr $r0,$r0,#0x1
-     188:	64 02 00 03 	mtsr $r0,$psw
+     180:	3a 0f 88 3c 	smw.adm $r0,[$sp],$r2,#0x0    ! {$r0~$r2} (i.e. $psw, $ipc+4, $ipsw)
+     184:	42 00 04 09 	bclr $r0,$r0,#0x1             ; clear low bit of $psw (bits 1-2: INTL, interrupt level)
+     188:	64 02 00 03 	mtsr $r0,$psw                 ; fiddling with $psw..
      18c:	64 00 00 08 	dsb
      190:	80 5f       	mov55 $r2,$sp
      192:	54 1f 80 04 	andi $r1,$sp,#0x4
@@ -119,19 +136,21 @@
      19a:	41 ff 84 01 	sub $sp,$sp,$r1
      19e:	3a 2f 88 3c 	smw.adm $r2,[$sp],$r2,#0x0    ! {$r2}
      1a2:	46 f0 00 02 	sethi $r15,#0x2
-     1a6:	58 f7 80 44 	ori $r15,$r15,#0x44
-     1aa:	dd 2f       	jral5 $r15
+     1a6:	58 f7 80 44 	ori $r15,$r15,#0x44           ; $r15 = 0x00002044
+     1aa:	dd 2f       	jral5 $r15                    ; jump to handler at 0x2044
      1ac:	05 ff 80 00 	lwi $sp,[$sp+#0x0]
      1b0:	3a 0f 88 04 	lmw.bim $r0,[$sp],$r2,#0x0    ! {$r0~$r2}
      1b4:	64 02 00 03 	mtsr $r0,$psw
      1b8:	64 00 00 08 	dsb
      1bc:	64 12 a4 03 	mtsr $r1,$ipc
-     1c0:	64 22 04 03 	mtsr $r2,$ipsw
+     1c0:	64 22 04 03 	mtsr $r2,$ipsw                ; ...restore old $psw, $ipc+4, $ipsw
      1c4:	3a ff bf 84 	lmw.bim $r15,[$sp],$r15,#0xe    ! {$r15, $fp, $gp, $lp}
      1c8:	ec 04       	addi10.sp #0x4
      1ca:	3a 1f 94 04 	lmw.bim $r1,[$sp],$r5,#0x0    ! {$r1~$r5}
-     1ce:	64 00 00 04 	iret
+     1ce:	64 00 00 04 	iret                          ; resume wherever we were before interrupt
      1d2:	3a 0f 94 3c 	smw.adm $r0,[$sp],$r5,#0x0    ! {$r0~$r5}
+
+; ---- HW0:
      1d6:	3a ff bf bc 	smw.adm $r15,[$sp],$r15,#0xe    ! {$r15, $fp, $gp, $lp}
      1da:	80 5f       	mov55 $r2,$sp
      1dc:	54 1f 80 04 	andi $r1,$sp,#0x4
@@ -146,6 +165,8 @@
      1fc:	3a ff bf 84 	lmw.bim $r15,[$sp],$r15,#0xe    ! {$r15, $fp, $gp, $lp}
      200:	3a 0f 94 04 	lmw.bim $r0,[$sp],$r5,#0x0    ! {$r0~$r5}
      204:	64 00 00 04 	iret
+
+; ---- Handler for HW1-5 (interrupt number in $r0) - same as other dump
      208:	3a 1f 94 3c 	smw.adm $r1,[$sp],$r5,#0x0    ! {$r1~$r5}
      20c:	3a ff bf bc 	smw.adm $r15,[$sp],$r15,#0xe    ! {$r15, $fp, $gp, $lp}
      210:	64 13 00 02 	mfsr $r1,$int_mask
@@ -186,21 +207,29 @@
      294:	3a 1f 94 04 	lmw.bim $r1,[$sp],$r5,#0x0    ! {$r1~$r5}
      298:	3a 0f 80 04 	lmw.bim $r0,[$sp],$r0,#0x0    ! {$r0}
      29c:	64 00 00 04 	iret
+
+; ---- HW1
      2a0:	3a 0f 80 3c 	smw.adm $r0,[$sp],$r0,#0x0    ! {$r0}
      2a4:	84 01       	movi55 $r0,#0x1
      2a6:	d5 b1       	j8 0x208
+; ---- HW2
      2a8:	3a 0f 80 3c 	smw.adm $r0,[$sp],$r0,#0x0    ! {$r0}
      2ac:	84 02       	movi55 $r0,#0x2
      2ae:	d5 ad       	j8 0x208
+; ---- HW3
      2b0:	3a 0f 80 3c 	smw.adm $r0,[$sp],$r0,#0x0    ! {$r0}
      2b4:	84 03       	movi55 $r0,#0x3
      2b6:	d5 a9       	j8 0x208
+; ---- HW4
      2b8:	3a 0f 80 3c 	smw.adm $r0,[$sp],$r0,#0x0    ! {$r0}
      2bc:	84 04       	movi55 $r0,#0x4
      2be:	d5 a5       	j8 0x208
+; ---- HW5
      2c0:	3a 0f 80 3c 	smw.adm $r0,[$sp],$r0,#0x0    ! {$r0}
      2c4:	84 05       	movi55 $r0,#0x5
      2c6:	d5 a1       	j8 0x208
+
+; ---- SW0
      2c8:	3a 0f 94 3c 	smw.adm $r0,[$sp],$r5,#0x0    ! {$r0~$r5}
      2cc:	3a ff bf bc 	smw.adm $r15,[$sp],$r15,#0xe    ! {$r15, $fp, $gp, $lp}
      2d0:	64 02 00 02 	mfsr $r0,$psw
@@ -229,79 +258,89 @@
      326:	3a 0f 94 04 	lmw.bim $r0,[$sp],$r5,#0x0    ! {$r0~$r5}
      32a:	64 00 00 04 	iret
      32e:	92 00       	nop16
+
+     ; --------- 0x330: image_header_check(hdr=$r0) -> $r0 = 0 if OK, -1 if bad
      330:	3a 6f a0 bc 	smw.adm $r6,[$sp],$r8,#0x2    ! {$r6~$r8, $lp}
      334:	ef e0       	addi10.sp #-32
      336:	46 14 24 97 	sethi $r1,#0x42497     ; 42 49 97 ...
-     33a:	80 c0       	mov55 $r6,$r0
+     33a:	80 c0       	mov55 $r6,$r0          ; $r6 = hdr
      33c:	b4 00       	lwi450 $r0,[$r0]
      33e:	58 10 86 31 	ori $r1,$r1,#0x631     ; $r1 = 42 49 76 31 ('BIv1') (!!!!!)
-     342:	4c 00 c0 1a 	bne $r0,$r1,0x376
-     346:	81 06       	mov55 $r8,$r6
+     342:	4c 00 c0 1a 	bne $r0,$r1,0x376      ; if hdr[0:3] != 'BIv1': goto fail
+     346:	81 06       	mov55 $r8,$r6          ; $r8 = hdr
      348:	3a 04 0c 04 	lmw.bim $r0,[$r8],$r3,#0x0    ! {$r0~$r3}
      34c:	80 bf       	mov55 $r5,$sp
      34e:	84 e0       	movi55 $r7,#0x0
      350:	3a 02 8c 24 	smw.bim $r0,[$r5],$r3,#0x0    ! {$r0~$r3}
      354:	3a 04 0c 00 	lmw.bi $r0,[$r8],$r3,#0x0    ! {$r0~$r3}
      358:	3a 02 8c 20 	smw.bi $r0,[$r5],$r3,#0x0    ! {$r0~$r3}
-     35c:	80 3f       	mov55 $r1,$sp
-     35e:	44 00 ff ff 	movi $r0,#0xffff
-     362:	44 20 00 20 	movi $r2,#0x20
+     35c:	80 3f       	mov55 $r1,$sp          ; crc16 addr = $sp
+     35e:	44 00 ff ff 	movi $r0,#0xffff       ; crc16 iv   = 0xffff
+     362:	44 20 00 20 	movi $r2,#0x20         ; crc16 size = 0x20
      366:	f7 81       	swi37.sp $r7,[+#0x4]
-     368:	49 00 00 40 	jal 0x3e8
+     368:	49 00 00 40 	jal 0x3e8              ; crc16(if=0xffff, addr=$sp, size=0x20) -> $r0
      36c:	a1 b1       	lwi333 $r6,[$r6+#0x4]
-     36e:	4c 03 40 04 	bne $r0,$r6,0x376
-     372:	80 07       	mov55 $r0,$r7
-     374:	d5 02       	j8 0x378
-     376:	84 1f       	movi55 $r0,#-1
-     378:	ec 20       	addi10.sp #0x20
+     36e:	4c 03 40 04 	bne $r0,$r6,0x376      ; if hdr crc isn't valid, goto fail
+     372:	80 07       	mov55 $r0,$r7          ; $r0 = 0
+     374:	d5 02       	j8 0x378               ; goto out
+     376:	84 1f       	movi55 $r0,#-1         ; fail: $r0 = -1
+     378:	ec 20       	addi10.sp #0x20        ; out:
      37a:	3a 6f a0 84 	lmw.bim $r6,[$sp],$r8,#0x2    ! {$r6~$r8, $lp}
      37e:	dd 9e       	ret5 $lp
+
+     ; ---------- watchdog_reset() - set the watchdog to reset the system
      380:	3b ff fc bc 	smw.adm $sp,[$sp],$sp,#0x2    ! {$lp}
      384:	ef fc       	addi10.sp #-4
-     386:	49 00 0e b1 	jal 0x20e8
-     38a:	46 20 02 00 	sethi $r2,#0x200
-     38e:	84 60       	movi55 $r3,#0x0
-     390:	80 22       	mov55 $r1,$r2
-     392:	80 01       	mov55 $r0,$r1
-     394:	14 31 02 02 	swi $r3,[$r2+#0x808]
-     398:	84 42       	movi55 $r2,#0x2
-     39a:	14 20 82 01 	swi $r2,[$r1+#0x804]
-     39e:	14 30 02 00 	swi $r3,[$r0+#0x800]
-     3a2:	d5 00       	j8 0x3a2
+     386:	49 00 0e b1 	jal 0x20e8             ; probably disable_interrupts()
+     38a:	46 20 02 00 	sethi $r2,#0x200       ;
+     38e:	84 60       	movi55 $r3,#0x0        ;
+     390:	80 22       	mov55 $r1,$r2          ;
+     392:	80 01       	mov55 $r0,$r1          ;
+     394:	14 31 02 02 	swi $r3,[$r2+#0x808]   ; 00200808 [watchdog detect time] = 0 -> detect time 1sec
+     398:	84 42       	movi55 $r2,#0x2        ;
+     39a:	14 20 82 01 	swi $r2,[$r1+#0x804]   ; watchdog reset time = 33ms
+     39e:	14 30 02 00 	swi $r3,[$r0+#0x800]   ; watchdog counter clear
+     3a2:	d5 00       	j8 0x3a2               ; ~infinite loop~
+
+     ; --------- 0x3a4: reboot(magic=$r0) -> 0 if bad magic, 1 if reboot fail, otherwise reboots in 33ms
      3a4:	3b ff fc bc 	smw.adm $sp,[$sp],$sp,#0x2    ! {$lp}
      3a8:	ef fc       	addi10.sp #-4
      3aa:	46 14 24 d4 	sethi $r1,#0x424d4
-     3ae:	58 10 81 50 	ori $r1,$r1,#0x150
-     3b2:	4c 00 80 10 	beq $r0,$r1,0x3d2
-     3b6:	46 14 24 d4 	sethi $r1,#0x424d4
-     3ba:	58 10 89 41 	ori $r1,$r1,#0x941
-     3be:	4c 00 80 0a 	beq $r0,$r1,0x3d2
-     3c2:	46 14 24 d4 	sethi $r1,#0x424d4
-     3c6:	58 10 89 53 	ori $r1,$r1,#0x953
-     3ca:	4c 00 80 04 	beq $r0,$r1,0x3d2
-     3ce:	84 00       	movi55 $r0,#0x0
-     3d0:	d5 07       	j8 0x3de
-     3d2:	3c 1d ff f6 	lwi.gp $r1,[+#-40]
-     3d6:	b6 01       	swi450 $r0,[$r1]
-     3d8:	49 ff ff d4 	jal 0x380
-     3dc:	84 01       	movi55 $r0,#0x1
-     3de:	ec 04       	addi10.sp #0x4
+     3ae:	58 10 81 50 	ori $r1,$r1,#0x150     ; $r1 = 42 4d 41 50 = 'BMAP'
+     3b2:	4c 00 80 10 	beq $r0,$r1,0x3d2      ;
+     3b6:	46 14 24 d4 	sethi $r1,#0x424d4     ;
+     3ba:	58 10 89 41 	ori $r1,$r1,#0x941     ; $r1 = 42 4d 49 41 = 'BMIA'
+     3be:	4c 00 80 0a 	beq $r0,$r1,0x3d2      ;
+     3c2:	46 14 24 d4 	sethi $r1,#0x424d4     ;
+     3c6:	58 10 89 53 	ori $r1,$r1,#0x953     ; $r1 = 42 4d 49 53 = 'BMIS'
+     3ca:	4c 00 80 04 	beq $r0,$r1,0x3d2      ;
+     3ce:	84 00       	movi55 $r0,#0x0        ; $r0 = 0
+     3d0:	d5 07       	j8 0x3de               ; goto out
+     3d2:	3c 1d ff f6 	lwi.gp $r1,[+#-40]     ; $r1 = [$gp-40]
+     3d6:	b6 01       	swi450 $r0,[$r1]       ; [$gp-40] = magic
+     3d8:	49 ff ff d4 	jal 0x380              ; watchdog_reset()
+     3dc:	84 01       	movi55 $r0,#0x1        ; $r0 = 1
+     3de:	ec 04       	addi10.sp #0x4         ; out:
      3e0:	3b ff fc 84 	lmw.bim $sp,[$sp],$sp,#0x2    ! {$lp}
      3e4:	dd 9e       	ret5 $lp
      3e6:	92 00       	nop16
-     3e8:	44 30 21 3c 	movi $r3,#0x213c
-     3ec:	96 01       	zeh33 $r0,$r0
-     3ee:	d5 0b       	j8 0x404
-     3f0:	08 00 80 01 	lbi.bi $r0,[$r1],#0x1
-     3f4:	9e 91       	subi333 $r2,$r2,#0x1
-     3f6:	40 52 80 03 	xor $r5,$r5,$r0
-     3fa:	38 01 95 01 	lh $r0,[$r3+($r5<<#0x1)]
-     3fe:	40 00 10 03 	xor $r0,$r0,$r4
-     402:	96 01       	zeh33 $r0,$r0
-     404:	40 50 20 09 	srli $r5,$r0,#0x8
-     408:	40 40 20 08 	slli $r4,$r0,#0x8
-     40c:	ca f2       	bnez38 $r2,0x3f0
+
+     ; ---------- 0x3e8: crc16(iv=$r0, addr=$r1, len=$r2) -> $r0 crc16
+     3e8:	44 30 21 3c 	movi $r3,#0x213c         ; $r3 = 0x213c (crc16_tbl)
+     3ec:	96 01       	zeh33 $r0,$r0            ; $r0 = $r0 & 0xffff (crc)
+     3ee:	d5 0b       	j8 0x404                 ; goto split_crc
+     3f0:	08 00 80 01 	lbi.bi $r0,[$r1],#0x1    ; loop: $r0.lo = byte[$r1++]
+     3f4:	9e 91       	subi333 $r2,$r2,#0x1     ;       $r2--
+     3f6:	40 52 80 03 	xor $r5,$r5,$r0          ;       $r5 = $r5 ^ $r0
+     3fa:	38 01 95 01 	lh $r0,[$r3+($r5<<#0x1)] ;       $r0 = [crc16_tbl+($r5<<1)]
+     3fe:	40 00 10 03 	xor $r0,$r0,$r4          ;       $r0 = ($r0 ^ $r4)
+     402:	96 01       	zeh33 $r0,$r0            ;   split_crc:
+     404:	40 50 20 09 	srli $r5,$r0,#0x8        ;       $r5 = $r0 >> 8 (crc.lo)
+     408:	40 40 20 08 	slli $r4,$r0,#0x8        ;       $r4 = $r0 << 8 (crc.hi)
+     40c:	ca f2       	bnez38 $r2,0x3f0         ; until $r2 == 0
      40e:	dd 9e       	ret5 $lp
+
+     ; ---------- 0x410: flash_program
      410:	3a 6f a4 3c 	smw.adm $r6,[$sp],$r9,#0x0    ! {$r6~$r9}
      414:	85 2a       	movi55 $r9,#0xa
      416:	44 30 00 4a 	movi $r3,#0x4a
@@ -309,7 +348,7 @@
      41e:	40 44 80 1a 	cmovz $r4,$r9,$r0
      422:	40 41 80 1b 	cmovn $r4,$r3,$r0
      426:	80 e8       	mov55 $r7,$r8
-     428:	14 94 01 00 	swi $r9,[$r8+#0x400]
+     428:	14 94 01 00 	swi $r9,[$r8+#0x400]   ; 0x00200400 = Flash Programmer base addr
      42c:	80 04       	mov55 $r0,$r4
      42e:	80 67       	mov55 $r3,$r7
      430:	80 c3       	mov55 $r6,$r3
@@ -333,6 +372,7 @@
      466:	14 00 81 01 	swi $r0,[$r1+#0x404]
      46a:	3a 6f a4 04 	lmw.bim $r6,[$sp],$r9,#0x0    ! {$r6~$r9}
      46e:	dd 9e       	ret5 $lp
+
      470:	3a 6f aa bc 	smw.adm $r6,[$sp],$r10,#0xa    ! {$r6~$r10, $fp, $lp}
      474:	ef cc       	addi10.sp #-52
      476:	44 30 00 4a 	movi $r3,#0x4a
@@ -419,6 +459,8 @@
      554:	3a 6f aa 84 	lmw.bim $r6,[$sp],$r10,#0xa    ! {$r6~$r10, $fp, $lp}
      558:	dd 9e       	ret5 $lp
      55a:	92 00       	nop16
+
+     ; ---------- 0x55c: flash_program
      55c:	3a 6f 9c 3c 	smw.adm $r6,[$sp],$r7,#0x0    ! {$r6~$r7}
      560:	c0 05       	beqz38 $r0,0x56a
      562:	ca 04       	bnez38 $r2,0x56a
@@ -454,6 +496,8 @@
      5bc:	3a 6f 9c 04 	lmw.bim $r6,[$sp],$r7,#0x0    ! {$r6~$r7}
      5c0:	dd 9e       	ret5 $lp
      5c2:	92 00       	nop16
+
+    ; ---------- 0x5c4: flash_program
      5c4:	3a 6f 9c 3c 	smw.adm $r6,[$sp],$r7,#0x0    ! {$r6~$r7}
      5c8:	84 ea       	movi55 $r7,#0xa
      5ca:	44 20 00 4a 	movi $r2,#0x4a
@@ -485,6 +529,8 @@
      61c:	3a 6f 9c 04 	lmw.bim $r6,[$sp],$r7,#0x0    ! {$r6~$r7}
      620:	dd 9e       	ret5 $lp
      622:	92 00       	nop16
+
+     ; ---------- 0x624: flash_program
      624:	3a 6f 9c 3c 	smw.adm $r6,[$sp],$r7,#0x0    ! {$r6~$r7}
      628:	84 ea       	movi55 $r7,#0xa
      62a:	44 20 00 4a 	movi $r2,#0x4a
@@ -518,6 +564,8 @@
      684:	b4 00       	lwi450 $r0,[$r0]
      686:	3a 6f 9c 04 	lmw.bim $r6,[$sp],$r7,#0x0    ! {$r6~$r7}
      68a:	dd 9e       	ret5 $lp
+
+     ; ---------- 0x68c: flash_program
      68c:	3a 6f aa bc 	smw.adm $r6,[$sp],$r10,#0xa    ! {$r6~$r10, $fp, $lp}
      690:	ef ac       	addi10.sp #-84
      692:	46 10 02 00 	sethi $r1,#0x200
@@ -727,6 +775,7 @@
      8e8:	ec 54       	addi10.sp #0x54
      8ea:	3a 6f aa 84 	lmw.bim $r6,[$sp],$r10,#0xa    ! {$r6~$r10, $fp, $lp}
      8ee:	dd 9e       	ret5 $lp
+
      8f0:	3a 6f a8 bc 	smw.adm $r6,[$sp],$r10,#0x2    ! {$r6~$r10, $lp}
      8f4:	80 e0       	mov55 $r7,$r0
      8f6:	54 00 00 03 	andi $r0,$r0,#0x3
@@ -739,7 +788,7 @@
      90a:	d5 06       	j8 0x916
      90c:	b4 42       	lwi450 $r2,[$r2]
      90e:	9d b4       	addi333 $r6,$r6,#0x4
-     910:	49 ff fd 80 	jal 0x410
+     910:	49 ff fd 80 	jal 0x410              ; flash_program 0x410
      914:	c8 0a       	bnez38 $r0,0x928
      916:	98 77       	add333 $r1,$r6,$r7
      918:	40 23 24 00 	add $r2,$r6,$r9
@@ -752,6 +801,8 @@
      928:	84 00       	movi55 $r0,#0x0
      92a:	3a 6f a8 84 	lmw.bim $r6,[$sp],$r10,#0x2    ! {$r6~$r10, $lp}
      92e:	dd 9e       	ret5 $lp
+
+    ; ---------- 0x930: flash_something($r0, $r1) -> $r0
      930:	3a 6f a4 bc 	smw.adm $r6,[$sp],$r9,#0x2    ! {$r6~$r9, $lp}
      934:	ef fc       	addi10.sp #-4
      936:	40 60 80 04 	or $r6,$r1,$r0
@@ -760,7 +811,7 @@
      940:	81 01       	mov55 $r8,$r1
      942:	ce 0f       	bnez38 $r6,0x960
      944:	d5 06       	j8 0x950
-     946:	49 ff fe 0b 	jal 0x55c
+     946:	49 ff fe 0b 	jal 0x55c              ; flash_program 0x55c
      94a:	c8 0b       	bnez38 $r0,0x960
      94c:	50 63 04 00 	addi $r6,$r6,#0x400
      950:	98 77       	add333 $r1,$r6,$r7
@@ -776,6 +827,9 @@
      964:	3a 6f a4 84 	lmw.bim $r6,[$sp],$r9,#0x2    ! {$r6~$r9, $lp}
      968:	dd 9e       	ret5 $lp
      96a:	92 00       	nop16
+
+     ; --------- 0x96c: handle_reboot_request(num=$r0) -> reboots to mode num
+     ; --------- num: 1->BMAP, 2->BMIA, 3->BMIS
      96c:	3a 6f a0 bc 	smw.adm $r6,[$sp],$r8,#0x2    ! {$r6~$r8, $lp}
      970:	97 80       	zeb33 $r6,$r0
      972:	9e 31       	subi333 $r0,$r6,#0x1
@@ -805,16 +859,17 @@
      9b4:	84 01       	movi55 $r0,#0x1
      9b6:	4c 60 40 12 	bne $r6,$r0,0x9da
      9ba:	46 04 24 d4 	sethi $r0,#0x424d4
-     9be:	58 00 01 50 	ori $r0,$r0,#0x150
+     9be:	58 00 01 50 	ori $r0,$r0,#0x150     ; $r0 = 42 4d 41 50 = 'BMAP'
      9c2:	d5 0a       	j8 0x9d6
      9c4:	46 04 24 d4 	sethi $r0,#0x424d4
-     9c8:	58 00 09 41 	ori $r0,$r0,#0x941
+     9c8:	58 00 09 41 	ori $r0,$r0,#0x941     ; $r0 = 42 4d 49 41 = 'BMIA'
      9cc:	d5 05       	j8 0x9d6
      9ce:	46 04 24 d4 	sethi $r0,#0x424d4
-     9d2:	58 00 09 53 	ori $r0,$r0,#0x953
+     9d2:	58 00 09 53 	ori $r0,$r0,#0x953     ; $r0 = 42 4d 49 53 = 'BMIS'
      9d6:	49 ff fc e7 	jal 0x3a4
      9da:	3a 6f a0 84 	lmw.bim $r6,[$sp],$r8,#0x2    ! {$r6~$r8, $lp}
      9de:	dd 9e       	ret5 $lp
+
      9e0:	3a 6f a0 bc 	smw.adm $r6,[$sp],$r8,#0x2    ! {$r6~$r8, $lp}
      9e4:	97 80       	zeb33 $r6,$r0
      9e6:	84 04       	movi55 $r0,#0x4
@@ -941,15 +996,19 @@
      b3c:	3a 6f a0 84 	lmw.bim $r6,[$sp],$r8,#0x2    ! {$r6~$r8, $lp}
      b40:	dd 9e       	ret5 $lp
      b42:	92 00       	nop16
+
+     ; ---------- 0xb44: image_header_check_0x2800 -> 0 if header OK, (-1 << 1) if not
      b44:	3b ff fc bc 	smw.adm $sp,[$sp],$sp,#0x2    ! {$lp}
      b48:	ef fc       	addi10.sp #-4
      b4a:	44 00 28 00 	movi $r0,#0x2800
-     b4e:	49 ff fb f1 	jal 0x330
+     b4e:	49 ff fb f1 	jal 0x330              ; image_header_check(0x2800) -> $r0 = 0 if OK, -1 if not
      b52:	92 00       	nop16
      b54:	5c 00 00 01 	slti $r0,$r0,#0x1
      b58:	ec 04       	addi10.sp #0x4
      b5a:	3b ff fc 84 	lmw.bim $sp,[$sp],$sp,#0x2    ! {$lp}
      b5e:	dd 9e       	ret5 $lp
+
+
      b60:	3a 6f a4 bc 	smw.adm $r6,[$sp],$r9,#0x2    ! {$r6~$r9, $lp}
      b64:	ef f4       	addi10.sp #-12
      b66:	97 c0       	zeb33 $r7,$r0
@@ -974,7 +1033,7 @@
      b9a:	3e 08 00 20 	addi.gp $r0,#0x20
      b9e:	49 00 0a bd 	jal 0x2118
      ba2:	3e 08 00 20 	addi.gp $r0,#0x20
-     ba6:	49 ff fb c5 	jal 0x330
+     ba6:	49 ff fb c5 	jal 0x330              ; image_header_check -> $r0 = 0 if OK, -1 if not
      baa:	c8 04       	bnez38 $r0,0xbb2
      bac:	3c 7e 00 06 	swi.gp $r7,[+#0x18]
      bb0:	d5 04       	j8 0xbb8
@@ -1079,7 +1138,7 @@
      cee:	04 24 00 03 	lwi $r2,[$r8+#0xc]
      cf2:	44 10 2a 00 	movi $r1,#0x2a00
      cf6:	44 00 ff ff 	movi $r0,#0xffff
-     cfa:	49 ff fb 77 	jal 0x3e8
+     cfa:	49 ff fb 77 	jal 0x3e8              ; crc16(iv=0xffff, addr=0x2a00, len=$r2) -> $r0 crc16
      cfe:	04 14 00 04 	lwi $r1,[$r8+#0x10]
      d02:	4c 00 c0 16 	bne $r0,$r1,0xd2e
      d06:	80 48       	mov55 $r2,$r8
@@ -1119,7 +1178,7 @@
      d70:	3a 0f 84 20 	smw.bi $r0,[$sp],$r1,#0x0    ! {$r0~$r1}
      d74:	80 23       	mov55 $r1,$r3
      d76:	44 00 ff ff 	movi $r0,#0xffff
-     d7a:	49 ff fb 37 	jal 0x3e8
+     d7a:	49 ff fb 37 	jal 0x3e8              ; crc16(iv=$r0, addr=$r1, len=$r2) -> $r0 crc16
      d7e:	a6 76       	lbi333 $r1,[$r6+#0x6]
      d80:	96 80       	zeb33 $r2,$r0
      d82:	4c 20 c0 1f 	bne $r2,$r1,0xdc0
@@ -1223,7 +1282,7 @@
      e8e:	92 00       	nop16
      e90:	46 10 02 00 	sethi $r1,#0x200
      e94:	44 00 00 80 	movi $r0,#0x80
-     e98:	14 00 82 00 	swi $r0,[$r1+#0x800]
+     e98:	14 00 82 00 	swi $r0,[$r1+#0x800]          ; 0x80 -> [0x00200800] (watchdog base)
      e9c:	dd 26       	jral5 $r6
      e9e:	3a 6f 98 84 	lmw.bim $r6,[$sp],$r6,#0x2    ! {$r6, $lp}
      ea2:	dd 9e       	ret5 $lp
@@ -1253,10 +1312,12 @@
      ef8:	51 fe 00 00 	addi $sp,$fp,#0x0
      efc:	3b ff fe 04 	lmw.bim $sp,[$sp],$sp,#0x8    ! {$fp}
      f00:	4a 00 78 20 	ret $lp
+
+     ; ---------- 0xf04: gpio_setup
      f04:	3b ff fe 3c 	smw.adm $sp,[$sp],$sp,#0x8    ! {$fp}
      f08:	51 cf 80 00 	addi $fp,$sp,#0x0
      f0c:	46 00 01 f6 	sethi $r0,#0x1f6
-     f10:	58 00 08 00 	ori $r0,$r0,#0x800
+     f10:	58 00 08 00 	ori $r0,$r0,#0x800     ; 0x001f6800 = GPIO base
      f14:	44 10 e7 ff 	movi $r1,#0xe7ff
      f18:	14 10 00 00 	swi $r1,[$r0+#0x0]
      f1c:	46 00 01 f6 	sethi $r0,#0x1f6
@@ -1314,6 +1375,7 @@
      fec:	51 fe 00 00 	addi $sp,$fp,#0x0
      ff0:	3b ff fe 04 	lmw.bim $sp,[$sp],$sp,#0x8    ! {$fp}
      ff4:	4a 00 78 20 	ret $lp
+
      ff8:	3b ff fe bc 	smw.adm $sp,[$sp],$sp,#0xa    ! {$fp, $lp}
      ffc:	51 cf 80 04 	addi $fp,$sp,#0x4
     1000:	51 ff ff f8 	addi $sp,$sp,#-8
@@ -1373,7 +1435,7 @@
     10cc:	38 01 00 00 	lb $r0,[$r2+($r0<<#0x0)]
     10d0:	54 20 00 ff 	andi $r2,$r0,#0xff
     10d4:	46 00 01 f6 	sethi $r0,#0x1f6
-    10d8:	58 00 08 0c 	ori $r0,$r0,#0x80c
+    10d8:	58 00 08 0c 	ori $r0,$r0,#0x80c     ; 0x001f680c = PAD_PA, get input from GPIOA
     10dc:	04 00 00 00 	lwi $r0,[$r0+#0x0]
     10e0:	54 00 00 ff 	andi $r0,$r0,#0xff
     10e4:	40 00 00 05 	nor $r0,$r0,$r0
@@ -1407,6 +1469,7 @@
     114c:	51 fe 7f fc 	addi $sp,$fp,#-4
     1150:	3b ff fe 84 	lmw.bim $sp,[$sp],$sp,#0xa    ! {$fp, $lp}
     1154:	4a 00 78 20 	ret $lp
+
     1158:	3b ff fe bc 	smw.adm $sp,[$sp],$sp,#0xa    ! {$fp, $lp}
     115c:	51 cf 80 04 	addi $fp,$sp,#0x4
     1160:	51 ff ff f8 	addi $sp,$sp,#-8
@@ -1433,7 +1496,7 @@
     11b0:	40 00 00 13 	zeh $r0,$r0
     11b4:	04 1e 7f fd 	lwi $r1,[$fp+#-12]
     11b8:	44 20 00 16 	movi $r2,#0x16
-    11bc:	49 ff f9 16 	jal 0x3e8
+    11bc:	49 ff f9 16 	jal 0x3e8              ; crc16(iv=$r0, addr=$r1, len=$r2) -> $r0 crc16
     11c0:	80 00       	mov55 $r0,$r0
     11c2:	12 0e 7f fc 	shi $r0,[$fp+#-8]
     11c6:	02 0e 7f fc 	lhi $r0,[$fp+#-8]
@@ -1464,6 +1527,8 @@
     1222:	3b ff fe 84 	lmw.bim $sp,[$sp],$sp,#0xa    ! {$fp, $lp}
     1226:	4a 00 78 20 	ret $lp
     122a:	92 00       	nop16
+
+    ; ----------- 0x122c: 
     122c:	ef f8       	addi10.sp #-8
     122e:	d5 03       	j8 0x1234
     1230:	f0 01       	lwi37.sp $r0,[+#0x4]
@@ -1474,11 +1539,13 @@
     123a:	ec 08       	addi10.sp #0x8
     123c:	dd 9e       	ret5 $lp
     123e:	92 00       	nop16
+
+    ; ----------- 0x1240: clock_setup()
     1240:	ef f8       	addi10.sp #-8
     1242:	46 00 02 00 	sethi $r0,#0x200
-    1246:	b4 20       	lwi450 $r1,[$r0]
+    1246:	b4 20       	lwi450 $r1,[$r0]       ; $r1 = System Control offset 0
     1248:	44 2f ff e3 	movi $r2,#-29
-    124c:	58 10 80 02 	ori $r1,$r1,#0x2
+    124c:	58 10 80 02 	ori $r1,$r1,#0x2       ; Set bit 1, HSEON - external high speed clock enabled
     1250:	b6 20       	swi450 $r1,[$r0]
     1252:	b4 20       	lwi450 $r1,[$r0]
     1254:	40 10 88 02 	and $r1,$r1,$r2
@@ -1492,8 +1559,8 @@
     1268:	c8 fc       	bnez38 $r0,0x1260
     126a:	46 00 02 00 	sethi $r0,#0x200
     126e:	44 10 63 17 	movi $r1,#0x6317
-    1272:	14 10 00 0d 	swi $r1,[$r0+#0x34]
-    1276:	44 00 03 e8 	movi $r0,#0x3e8
+    1272:	14 10 00 0d 	swi $r1,[$r0+#0x34]    ; 0x6317 -> [0x00200034] (USB PLL)
+    1276:	44 00 03 e8 	movi $r0,#0x3e8        ;
     127a:	d5 03       	j8 0x1280
     127c:	f0 01       	lwi37.sp $r0,[+#0x4]
     127e:	9e 01       	subi333 $r0,$r0,#0x1
@@ -1508,6 +1575,7 @@
     1296:	a8 41       	swi333 $r1,[$r0+#0x4]
     1298:	ec 08       	addi10.sp #0x8
     129a:	dd 9e       	ret5 $lp
+
     129c:	3b ff fc bc 	smw.adm $sp,[$sp],$sp,#0x2    ! {$lp}
     12a0:	ef fc       	addi10.sp #-4
     12a2:	49 00 05 b1 	jal 0x1e04
@@ -1515,6 +1583,7 @@
     12a8:	ec 04       	addi10.sp #0x4
     12aa:	3b ff fc 84 	lmw.bim $sp,[$sp],$sp,#0x2    ! {$lp}
     12ae:	dd 9e       	ret5 $lp
+
     12b0:	3b ff fc bc 	smw.adm $sp,[$sp],$sp,#0x2    ! {$lp}
     12b4:	ef fc       	addi10.sp #-4
     12b6:	49 00 05 4b 	jal 0x1d4c
@@ -1522,6 +1591,7 @@
     12bc:	ec 04       	addi10.sp #0x4
     12be:	3b ff fc 84 	lmw.bim $sp,[$sp],$sp,#0x2    ! {$lp}
     12c2:	dd 9e       	ret5 $lp
+
     12c4:	3a 6f 9c bc 	smw.adm $r6,[$sp],$r7,#0x2    ! {$r6~$r7, $lp}
     12c8:	ef fc       	addi10.sp #-4
     12ca:	46 10 02 00 	sethi $r1,#0x200
@@ -1532,7 +1602,7 @@
     12da:	a8 43       	swi333 $r1,[$r0+#0xc]
     12dc:	84 20       	movi55 $r1,#0x0
     12de:	a8 43       	swi333 $r1,[$r0+#0xc]
-    12e0:	49 ff ff b0 	jal 0x1240
+    12e0:	49 ff ff b0 	jal 0x1240             ; clock_setup()
     12e4:	84 0c       	movi55 $r0,#0xc
     12e6:	49 00 06 eb 	jal 0x20bc
     12ea:	49 00 07 05 	jal 0x20f4
@@ -1556,7 +1626,7 @@
     132c:	49 ff fe 66 	jal 0xff8
     1330:	49 ff ff 14 	jal 0x1158
     1334:	c8 0a       	bnez38 $r0,0x1348
-    1336:	49 ff fc 07 	jal 0xb44
+    1336:	49 ff fc 07 	jal 0xb44              ; 0xb44: image_header_check_0x2800
     133a:	84 21       	movi55 $r1,#0x1
     133c:	4c 00 c0 06 	bne $r0,$r1,0x1348
     1340:	44 00 2a 00 	movi $r0,#0x2a00
@@ -1575,6 +1645,7 @@
     136c:	14 10 02 06 	swi $r1,[$r0+#0x818]
     1370:	dd 9e       	ret5 $lp
     1372:	92 00       	nop16
+
     1374:	46 10 02 07 	sethi $r1,#0x207
     1378:	96 00       	zeb33 $r0,$r0
     137a:	14 00 82 05 	swi $r0,[$r1+#0x814]
@@ -1585,6 +1656,7 @@
     138c:	14 10 02 06 	swi $r1,[$r0+#0x818]
     1390:	dd 9e       	ret5 $lp
     1392:	92 00       	nop16
+
     1394:	46 00 02 07 	sethi $r0,#0x207
     1398:	84 20       	movi55 $r1,#0x0
     139a:	14 10 02 05 	swi $r1,[$r0+#0x814]
@@ -1592,6 +1664,7 @@
     13a2:	58 10 80 c0 	ori $r1,$r1,#0xc0
     13a6:	14 10 02 06 	swi $r1,[$r0+#0x818]
     13aa:	dd 9e       	ret5 $lp
+
     13ac:	46 20 02 07 	sethi $r2,#0x207
     13b0:	00 80 80 01 	lbi $r8,[$r1+#0x1]
     13b4:	14 20 82 00 	swi $r2,[$r1+#0x800]
@@ -1633,6 +1706,7 @@
     1428:	80 02       	mov55 $r0,$r2
     142a:	14 10 02 0b 	swi $r1,[$r0+#0x82c]
     142e:	dd 9e       	ret5 $lp
+
     1430:	46 00 02 07 	sethi $r0,#0x207
     1434:	2e 30 00 57 	lbi.gp $r3,[+#0x57]
     1438:	84 80       	movi55 $r4,#0x0
@@ -1647,6 +1721,7 @@
     1458:	80 01       	mov55 $r0,$r1
     145a:	14 20 02 0b 	swi $r2,[$r0+#0x82c]
     145e:	dd 9e       	ret5 $lp
+
     1460:	2e 30 00 57 	lbi.gp $r3,[+#0x57]
     1464:	2e 40 00 56 	lbi.gp $r4,[+#0x56]
     1468:	46 10 02 07 	sethi $r1,#0x207
@@ -1687,6 +1762,7 @@
     14d8:	14 10 02 0b 	swi $r1,[$r0+#0x82c]
     14dc:	dd 9e       	ret5 $lp
     14de:	92 00       	nop16
+
     14e0:	2e 20 00 57 	lbi.gp $r2,[+#0x57]
     14e4:	2e 40 00 56 	lbi.gp $r4,[+#0x56]
     14e8:	46 30 02 07 	sethi $r3,#0x207
@@ -1730,6 +1806,7 @@
     155c:	3c 1f ff ff 	swi.gp $r1,[+#-4]
     1560:	dd 9e       	ret5 $lp
     1562:	92 00       	nop16
+
     1564:	46 00 02 07 	sethi $r0,#0x207
     1568:	04 20 02 0a 	lwi $r2,[$r0+#0x828]
     156c:	3c 3c 00 00 	lwi.gp $r3,[+#0x0]
@@ -1768,6 +1845,7 @@
     15d0:	14 01 02 0b 	swi $r0,[$r2+#0x82c]
     15d4:	dd 9e       	ret5 $lp
     15d6:	92 00       	nop16
+
     15d8:	46 40 02 07 	sethi $r4,#0x207
     15dc:	96 00       	zeb33 $r0,$r0
     15de:	80 64       	mov55 $r3,$r4
@@ -1781,6 +1859,7 @@
     15f6:	44 0f ff 7f 	movi $r0,#-129
     15fa:	14 00 82 0c 	swi $r0,[$r1+#0x830]
     15fe:	dd 9e       	ret5 $lp
+
     1600:	46 40 02 07 	sethi $r4,#0x207
     1604:	96 00       	zeb33 $r0,$r0
     1606:	80 64       	mov55 $r3,$r4
@@ -1794,6 +1873,7 @@
     161e:	44 0f ff 7f 	movi $r0,#-129
     1622:	14 00 82 1c 	swi $r0,[$r1+#0x870]
     1626:	dd 9e       	ret5 $lp
+
     1628:	46 20 02 07 	sethi $r2,#0x207
     162c:	96 00       	zeb33 $r0,$r0
     162e:	80 22       	mov55 $r1,$r2
@@ -1801,6 +1881,7 @@
     1634:	84 00       	movi55 $r0,#0x0
     1636:	14 00 82 06 	swi $r0,[$r1+#0x818]
     163a:	dd 9e       	ret5 $lp
+
     163c:	3b ff fc bc 	smw.adm $sp,[$sp],$sp,#0x2    ! {$lp}
     1640:	ef fc       	addi10.sp #-4
     1642:	84 60       	movi55 $r3,#0x0
@@ -1843,6 +1924,7 @@
     16b4:	ec 04       	addi10.sp #0x4
     16b6:	3b ff fc 84 	lmw.bim $sp,[$sp],$sp,#0x2    ! {$lp}
     16ba:	dd 9e       	ret5 $lp
+
     16bc:	3b ff fc bc 	smw.adm $sp,[$sp],$sp,#0x2    ! {$lp}
     16c0:	ef fc       	addi10.sp #-4
     16c2:	3e 08 00 50 	addi.gp $r0,#0x50
@@ -1893,6 +1975,7 @@
     1754:	ec 04       	addi10.sp #0x4
     1756:	3b ff fc 84 	lmw.bim $sp,[$sp],$sp,#0x2    ! {$lp}
     175a:	dd 9e       	ret5 $lp
+
     175c:	3b ff fc bc 	smw.adm $sp,[$sp],$sp,#0x2    ! {$lp}
     1760:	ef fc       	addi10.sp #-4
     1762:	3e 08 00 50 	addi.gp $r0,#0x50
@@ -1942,6 +2025,7 @@
     17f0:	ec 04       	addi10.sp #0x4
     17f2:	3b ff fc 84 	lmw.bim $sp,[$sp],$sp,#0x2    ! {$lp}
     17f6:	dd 9e       	ret5 $lp
+
     17f8:	3b ff fc bc 	smw.adm $sp,[$sp],$sp,#0x2    ! {$lp}
     17fc:	ef fc       	addi10.sp #-4
     17fe:	46 00 01 00 	sethi $r0,#0x100
@@ -1956,6 +2040,7 @@
     1820:	3b ff fc 84 	lmw.bim $sp,[$sp],$sp,#0x2    ! {$lp}
     1824:	dd 9e       	ret5 $lp
     1826:	92 00       	nop16
+
     1828:	3b ff fc bc 	smw.adm $sp,[$sp],$sp,#0x2    ! {$lp}
     182c:	ef fc       	addi10.sp #-4
     182e:	3e 08 00 50 	addi.gp $r0,#0x50
@@ -2013,6 +2098,7 @@
     18cc:	ec 04       	addi10.sp #0x4
     18ce:	3b ff fc 84 	lmw.bim $sp,[$sp],$sp,#0x2    ! {$lp}
     18d2:	dd 9e       	ret5 $lp
+
     18d4:	3b ff fc bc 	smw.adm $sp,[$sp],$sp,#0x2    ! {$lp}
     18d8:	ef fc       	addi10.sp #-4
     18da:	2e 00 00 50 	lbi.gp $r0,[+#0x50]
@@ -2026,6 +2112,7 @@
     18f8:	ec 04       	addi10.sp #0x4
     18fa:	3b ff fc 84 	lmw.bim $sp,[$sp],$sp,#0x2    ! {$lp}
     18fe:	dd 9e       	ret5 $lp
+
     1900:	3a 6f a4 bc 	smw.adm $r6,[$sp],$r9,#0x2    ! {$r6~$r9, $lp}
     1904:	ef fc       	addi10.sp #-4
     1906:	2e 30 00 50 	lbi.gp $r3,[+#0x50]
@@ -2079,6 +2166,7 @@
     19a6:	92 00       	nop16
     19a8:	dd 9e       	ret5 $lp
     19aa:	92 00       	nop16
+
     19ac:	3b ff fc bc 	smw.adm $sp,[$sp],$sp,#0x2    ! {$lp}
     19b0:	ef fc       	addi10.sp #-4
     19b2:	2e 10 00 50 	lbi.gp $r1,[+#0x50]
@@ -2095,6 +2183,7 @@
     19d8:	3b ff fc 84 	lmw.bim $sp,[$sp],$sp,#0x2    ! {$lp}
     19dc:	dd 9e       	ret5 $lp
     19de:	92 00       	nop16
+
     19e0:	3b ff fc bc 	smw.adm $sp,[$sp],$sp,#0x2    ! {$lp}
     19e4:	ef fc       	addi10.sp #-4
     19e6:	2e 10 00 50 	lbi.gp $r1,[+#0x50]
@@ -2113,6 +2202,7 @@
     1a12:	92 00       	nop16
     1a14:	dd 9e       	ret5 $lp
     1a16:	92 00       	nop16
+
     1a18:	3b ff fc bc 	smw.adm $sp,[$sp],$sp,#0x2    ! {$lp}
     1a1c:	ef fc       	addi10.sp #-4
     1a1e:	3e 08 00 50 	addi.gp $r0,#0x50
@@ -2128,6 +2218,7 @@
     1a3c:	3b ff fc 84 	lmw.bim $sp,[$sp],$sp,#0x2    ! {$lp}
     1a40:	dd 9e       	ret5 $lp
     1a42:	92 00       	nop16
+
     1a44:	3b ff fc bc 	smw.adm $sp,[$sp],$sp,#0x2    ! {$lp}
     1a48:	ef fc       	addi10.sp #-4
     1a4a:	3e 08 00 50 	addi.gp $r0,#0x50
@@ -2143,6 +2234,7 @@
     1a68:	3b ff fc 84 	lmw.bim $sp,[$sp],$sp,#0x2    ! {$lp}
     1a6c:	dd 9e       	ret5 $lp
     1a6e:	92 00       	nop16
+
     1a70:	3b ff fc bc 	smw.adm $sp,[$sp],$sp,#0x2    ! {$lp}
     1a74:	ef fc       	addi10.sp #-4
     1a76:	3e 08 00 50 	addi.gp $r0,#0x50
@@ -2175,6 +2267,7 @@
     1ad0:	3b ff fc 84 	lmw.bim $sp,[$sp],$sp,#0x2    ! {$lp}
     1ad4:	dd 9e       	ret5 $lp
     1ad6:	92 00       	nop16
+
     1ad8:	46 00 02 07 	sethi $r0,#0x207
     1adc:	84 20       	movi55 $r1,#0x0
     1ade:	14 10 02 05 	swi $r1,[$r0+#0x814]
@@ -2236,6 +2329,7 @@
     1b94:	44 10 00 10 	movi $r1,#0x10
     1b98:	b6 20       	swi450 $r1,[$r0]
     1b9a:	dd 9e       	ret5 $lp
+
     1b9c:	3b ff fc bc 	smw.adm $sp,[$sp],$sp,#0x2    ! {$lp}
     1ba0:	ef fc       	addi10.sp #-4
     1ba2:	49 ff ff 9b 	jal 0x1ad8
@@ -2255,6 +2349,7 @@
     1bd4:	3b ff fc 84 	lmw.bim $sp,[$sp],$sp,#0x2    ! {$lp}
     1bd8:	dd 9e       	ret5 $lp
     1bda:	92 00       	nop16
+
     1bdc:	46 10 02 07 	sethi $r1,#0x207
     1be0:	96 00       	zeb33 $r0,$r0
     1be2:	14 00 82 05 	swi $r0,[$r1+#0x814]
@@ -2267,6 +2362,7 @@
     1bf8:	40 01 04 1b 	cmovn $r0,$r2,$r1
     1bfc:	dd 9e       	ret5 $lp
     1bfe:	92 00       	nop16
+
     1c00:	3b ff fc bc 	smw.adm $sp,[$sp],$sp,#0x2    ! {$lp}
     1c04:	ef fc       	addi10.sp #-4
     1c06:	46 00 02 07 	sethi $r0,#0x207
@@ -2293,6 +2389,7 @@
     1c4c:	3b ff fc 84 	lmw.bim $sp,[$sp],$sp,#0x2    ! {$lp}
     1c50:	dd 9e       	ret5 $lp
     1c52:	92 00       	nop16
+
     1c54:	46 50 02 07 	sethi $r5,#0x207
     1c58:	96 00       	zeb33 $r0,$r0
     1c5a:	80 85       	mov55 $r4,$r5
@@ -2312,6 +2409,7 @@
     1c80:	80 03       	mov55 $r0,$r3
     1c82:	14 20 02 0b 	swi $r2,[$r0+#0x82c]
     1c86:	dd 9e       	ret5 $lp
+
     1c88:	3a 6f 98 3c 	smw.adm $r6,[$sp],$r6,#0x0    ! {$r6}
     1c8c:	46 30 02 07 	sethi $r3,#0x207
     1c90:	96 00       	zeb33 $r0,$r0
@@ -2337,6 +2435,7 @@
     1cc2:	14 10 02 19 	swi $r1,[$r0+#0x864]
     1cc6:	3a 6f 98 04 	lmw.bim $r6,[$sp],$r6,#0x0    ! {$r6}
     1cca:	dd 9e       	ret5 $lp
+
     1ccc:	3a 6f 9c 3c 	smw.adm $r6,[$sp],$r7,#0x0    ! {$r6~$r7}
     1cd0:	84 20       	movi55 $r1,#0x0
     1cd2:	3e 10 00 14 	sbi.gp $r1,[+#0x14]
@@ -2370,6 +2469,7 @@
     1d2e:	3c 0f ff ff 	swi.gp $r0,[+#-4]
     1d32:	3a 6f 9c 04 	lmw.bim $r6,[$sp],$r7,#0x0    ! {$r6~$r7}
     1d36:	dd 9e       	ret5 $lp
+
     1d38:	3b ff fc bc 	smw.adm $sp,[$sp],$sp,#0x2    ! {$lp}
     1d3c:	ef fc       	addi10.sp #-4
     1d3e:	49 ff ff c7 	jal 0x1ccc
@@ -2377,6 +2477,7 @@
     1d44:	3b ff fc 84 	lmw.bim $sp,[$sp],$sp,#0x2    ! {$lp}
     1d48:	dd 9e       	ret5 $lp
     1d4a:	92 00       	nop16
+
     1d4c:	3a 6f 98 bc 	smw.adm $r6,[$sp],$r6,#0x2    ! {$r6, $lp}
     1d50:	46 10 02 07 	sethi $r1,#0x207
     1d54:	80 01       	mov55 $r0,$r1
@@ -2406,6 +2507,7 @@
     1da6:	14 10 02 05 	swi $r1,[$r0+#0x814]
     1daa:	3a 6f 98 84 	lmw.bim $r6,[$sp],$r6,#0x2    ! {$r6, $lp}
     1dae:	dd 9e       	ret5 $lp
+
     1db0:	3c 0c 00 02 	lwi.gp $r0,[+#0x8]
     1db4:	84 21       	movi55 $r1,#0x1
     1db6:	4c 00 c0 25 	bne $r0,$r1,0x1e00
@@ -2431,6 +2533,7 @@
     1dfc:	3c 1e 00 02 	swi.gp $r1,[+#0x8]
     1e00:	dd 9e       	ret5 $lp
     1e02:	92 00       	nop16
+
     1e04:	3a 6f 98 bc 	smw.adm $r6,[$sp],$r6,#0x2    ! {$r6, $lp}
     1e08:	46 10 02 07 	sethi $r1,#0x207
     1e0c:	80 01       	mov55 $r0,$r1
@@ -2493,6 +2596,7 @@
     1ebe:	14 10 02 05 	swi $r1,[$r0+#0x814]
     1ec2:	3a 6f 98 84 	lmw.bim $r6,[$sp],$r6,#0x2    ! {$r6, $lp}
     1ec6:	dd 9e       	ret5 $lp
+
     1ec8:	3b ff fc bc 	smw.adm $sp,[$sp],$sp,#0x2    ! {$lp}
     1ecc:	ef fc       	addi10.sp #-4
     1ece:	3c 0c 00 01 	lwi.gp $r0,[+#0x4]
@@ -2529,6 +2633,7 @@
     1f28:	ec 04       	addi10.sp #0x4
     1f2a:	3b ff fc 84 	lmw.bim $sp,[$sp],$sp,#0x2    ! {$lp}
     1f2e:	dd 9e       	ret5 $lp
+
     1f30:	3a 6f 98 bc 	smw.adm $r6,[$sp],$r6,#0x2    ! {$r6, $lp}
     1f34:	9c 87       	addi333 $r2,$r0,#0x7
     1f36:	a7 90       	lbi333 $r6,[$r2+#0x0]
@@ -2542,12 +2647,13 @@
     1f48:	40 63 20 08 	slli $r6,$r6,#0x8
     1f4c:	44 00 ff ff 	movi $r0,#0xffff
     1f50:	40 63 14 04 	or $r6,$r6,$r5
-    1f54:	49 ff f2 4a 	jal 0x3e8
+    1f54:	49 ff f2 4a 	jal 0x3e8              ; crc16(iv=$r0, addr=$r1, len=$r2) -> $r0 crc16
     1f58:	92 00       	nop16
     1f5a:	40 00 18 03 	xor $r0,$r0,$r6
     1f5e:	5c 00 00 01 	slti $r0,$r0,#0x1
     1f62:	3a 6f 98 84 	lmw.bim $r6,[$sp],$r6,#0x2    ! {$r6, $lp}
     1f66:	dd 9e       	ret5 $lp
+
     1f68:	3a 6f a0 bc 	smw.adm $r6,[$sp],$r8,#0x2    ! {$r6~$r8, $lp}
     1f6c:	3e 08 01 10 	addi.gp $r0,#0x110
     1f70:	49 ff ff e0 	jal 0x1f30
@@ -2569,6 +2675,7 @@
     1faa:	3c 6e 00 01 	swi.gp $r6,[+#0x4]
     1fae:	3a 6f a0 84 	lmw.bim $r6,[$sp],$r8,#0x2    ! {$r6~$r8, $lp}
     1fb2:	dd 9e       	ret5 $lp
+
     1fb4:	3a 6f 9c bc 	smw.adm $r6,[$sp],$r7,#0x2    ! {$r6~$r7, $lp}
     1fb8:	ef fc       	addi10.sp #-4
     1fba:	84 20       	movi55 $r1,#0x0
@@ -2579,7 +2686,7 @@
     1fc4:	44 20 00 40 	movi $r2,#0x40
     1fc8:	80 20       	mov55 $r1,$r0
     1fca:	44 00 ff ff 	movi $r0,#0xffff
-    1fce:	49 ff f2 0d 	jal 0x3e8
+    1fce:	49 ff f2 0d 	jal 0x3e8              ; crc16(iv=$r0, addr=$r1, len=$r2) -> $r0 crc16
     1fd2:	92 00       	nop16
     1fd4:	40 10 20 09 	srli $r1,$r0,#0x8
     1fd8:	ae 38       	sbi333 $r0,[$r7+#0x0]
@@ -2587,6 +2694,7 @@
     1fdc:	ec 04       	addi10.sp #0x4
     1fde:	3a 6f 9c 84 	lmw.bim $r6,[$sp],$r7,#0x2    ! {$r6~$r7, $lp}
     1fe2:	dd 9e       	ret5 $lp
+
     1fe4:	3a 6f 98 bc 	smw.adm $r6,[$sp],$r6,#0x2    ! {$r6, $lp}
     1fe8:	46 60 02 07 	sethi $r6,#0x207
     1fec:	58 63 08 0c 	ori $r6,$r6,#0x80c
@@ -2596,6 +2704,10 @@
     1ff8:	b6 06       	swi450 $r0,[$r6]
     1ffa:	49 ff fe 69 	jal 0x1ccc
     1ffe:	92 20       	srli45 $r1,#0x0
+
+
+; this doesn't seem sensible. maybe it's the wrong endianness?
+; or maybe it's a data table of some kind?
     2000:	09 ae 38 ae 	lbi.bi $p0,[$fp],#0x38ae
     2004:	70 ec 04 3a 	*unknown*
     2008:	6f 9c 84 dd 	*unknown*
