@@ -63,8 +63,8 @@
 ;
 ;   0xcd60 ~ 0xcd7f: periph_tbl[8]
 ;     Here we have a set of 8 interesting memory addresses for peripherals
-;   0xcd60  (6): 00204800 00201c00  00206400 00202400
-;                SPI1     Timer0    ADC      Timer2
+;   0xcd60  (6): 00204800 00201c00  00202000 00202400
+;                SPI1     Timer0    Timer1   Timer2
 ;   0xcd70     : 00202800 00200d00  00206400 00300010
 ;                Timer3   IE0       ADC      dma_saddr0
 ;    (See data at offset 0xa360)
@@ -513,13 +513,13 @@
      ; ---------- 0x408: handle_timer1_interrupt()
      408:	3a 6f 98 bc 	smw.adm $r6,[$sp],$r6,#0x2    ! {$r6, $lp}
      40c:	46 00 00 0c 	sethi $r0,#0xc
-     410:	04 60 03 5a 	lwi $r6,[$r0+#0xd68]   ; $r6 = periph_tbl[2] = ADC
-     414:	04 03 00 10 	lwi $r0,[$r6+#0x40]    ; $r0 = ADC+0x40 = ...
-     418:	54 00 00 10 	andi $r0,$r0,#0x10
-     41c:	4e 02 00 08 	beqz $r0,0x42c
-     420:	49 00 17 ee 	jal 0x33fc
-     424:	44 00 00 10 	movi $r0,#0x10
-     428:	14 03 00 10 	swi $r0,[$r6+#0x40]
+     410:	04 60 03 5a 	lwi $r6,[$r0+#0xd68]   ; $r6 = periph_tbl[2] = Timer1
+     414:	04 03 00 10 	lwi $r0,[$r6+#0x40]    ; $r0 = Timer1+0x40 = Timer1.iof (interrupt/overflow flags)
+     418:	54 00 00 10 	andi $r0,$r0,#0x10     ; $r0 = Timer1.iof & 0x10 = if_mat0a (interrupt of mat0a flag)
+     41c:	4e 02 00 08 	beqz $r0,0x42c         ; if if_mat0a:
+     420:	49 00 17 ee 	jal 0x33fc             ;     handle_timer1_tick()
+     424:	44 00 00 10 	movi $r0,#0x10         ;     ..
+     428:	14 03 00 10 	swi $r0,[$r6+#0x40]    ;     ..clear if_mat0a
      42c:	3a 6f 98 84 	lmw.bim $r6,[$sp],$r6,#0x2    ! {$r6, $lp}
      430:	dd 9e       	ret5 $lp
      432:	92 00       	nop16
@@ -3182,15 +3182,15 @@
     2390:	b6 01       	swi450 $r0,[$r1]       ; set bit 4, IE0_TMR1: enable HW0 interrupt for TIMER1
     2392:	dd 9e       	ret5 $lp
 
-    ; ----------- 0x2394: ???
-    2394:	44 10 cd 20 	movi $r1,#0xcd20       ; gpio_tbl[11]
+    ; ----------- 0x2394: init_gpio_funk (maybe the keyboard inputs?)
+    2394:	44 10 cd 20 	movi $r1,#0xcd20       ; $r1 = gpio_tbl[11] = GPIOC_10
     2398:	b4 01       	lwi450 $r0,[$r1]
     239a:	a0 89       	lwi333 $r2,[$r1+#0x4]
     239c:	b4 60       	lwi450 $r3,[$r0]
     239e:	40 41 08 05 	nor $r4,$r2,$r2
     23a2:	40 31 0c 04 	or $r3,$r2,$r3
     23a6:	b6 60       	swi450 $r3,[$r0]
-    23a8:	8c 28       	addi45 $r1,#0x8        ; gpio_tbl[12]
+    23a8:	8c 28       	addi45 $r1,#0x8        ; $r1 = gpio_tbl[12] = GPIOA_13
     23aa:	a0 c1       	lwi333 $r3,[$r0+#0x4]
     23ac:	40 32 0c 02 	and $r3,$r4,$r3
     23b0:	a8 c1       	swi333 $r3,[$r0+#0x4]
@@ -3507,6 +3507,8 @@
     270e:	3b ff fc 84 	lmw.bim $sp,[$sp],$sp,#0x2    ! {$lp}
     2712:	48 ff ff 2b 	j 0x2568
     2716:	92 00       	nop16
+
+    ; ----------- 0x2718: even more PWM twiddling
     2718:	44 30 cc d8 	movi $r3,#0xccd8
     271c:	44 10 cc d0 	movi $r1,#0xccd0
     2720:	a2 09       	lwi333.bi $r0,[$r1],#0x4       ; $r0 = ccd0[0] = 0x00001fc8
@@ -3661,7 +3663,7 @@
     28ba:	3a 6f a8 04 	lmw.bim $r6,[$sp],$r10,#0x0    ! {$r6~$r10}
     28be:	dd 9e       	ret5 $lp
 
-    ; ----------- 0x28c0: toggle_gpio_1_2()
+    ; ----------- 0x28c0: timer1_tick_sub2: twiddle gpio_b13/gpio_b14
     28c0:	44 30 cc d8 	movi $r3,#0xccd8           ; gpio_tbl[2] (gpio_b14)
     28c4:	44 10 cc d0 	movi $r1,#0xccd0           ; gpio_tbl[1] (gpio_b13)
     28c8:	a2 09       	lwi333.bi $r0,[$r1],#0x4
@@ -3679,23 +3681,24 @@
     28e8:	a8 d7       	swi333 $r3,[$r2+#0x1c]     ; b14 off
     28ea:	dd 9e       	ret5 $lp
 
+    ; ----------- 0x28ec: timer1_tick_sub1(addr=$r0): twiddle the heck out of gpio b12/b13/b14
     28ec:	3a 6f a4 3c 	smw.adm $r6,[$sp],$r9,#0x0    ! {$r6~$r9}
-    28f0:	44 10 cc d8 	movi $r1,#0xccd8
-    28f4:	a3 c9       	lwi333.bi $r7,[$r1],#0x4
+    28f0:	44 10 cc d8 	movi $r1,#0xccd8           ;
+    28f4:	a3 c9       	lwi333.bi $r7,[$r1],#0x4   ; $r7 = [0xccd8] = gpio_b14
     28f6:	44 30 cc d0 	movi $r3,#0xccd0
     28fa:	44 40 cc c8 	movi $r4,#0xccc8
-    28fe:	b5 01       	lwi450 $r8,[$r1]
-    2900:	a2 99       	lwi333.bi $r2,[$r3],#0x4
-    2902:	a2 61       	lwi333.bi $r1,[$r4],#0x4
-    2904:	14 83 80 07 	swi $r8,[$r7+#0x1c]
-    2908:	b4 63       	lwi450 $r3,[$r3]
+    28fe:	b5 01       	lwi450 $r8,[$r1]           ;
+    2900:	a2 99       	lwi333.bi $r2,[$r3],#0x4   ; $r2 = [0xccd0] = gpio_b13
+    2902:	a2 61       	lwi333.bi $r1,[$r4],#0x4   ; $r1 = [0xccc8] = gpio_b12
+    2904:	14 83 80 07 	swi $r8,[$r7+#0x1c]        ; b14 off
+    2908:	b4 63       	lwi450 $r3,[$r3]           ;
     290a:	b4 84       	lwi450 $r4,[$r4]
-    290c:	50 00 00 5e 	addi $r0,$r0,#0x5e
-    2910:	84 cf       	movi55 $r6,#0xf
-    2912:	a5 40       	lhi333 $r5,[$r0+#0x0]
-    2914:	a8 d7       	swi333 $r3,[$r2+#0x1c]
-    2916:	40 92 80 11 	seh $r9,$r5
-    291a:	4e 94 00 07 	bgez $r9,0x2928
+    290c:	50 00 00 5e 	addi $r0,$r0,#0x5e         ; addr += 0x5e
+    2910:	84 cf       	movi55 $r6,#0xf            ; $r6 = 0xf
+    2912:	a5 40       	lhi333 $r5,[$r0+#0x0]      ; $r5 = [addr+0x5e]
+    2914:	a8 d7       	swi333 $r3,[$r2+#0x1c]     ; b13 off
+    2916:	40 92 80 11 	seh $r9,$r5                ;
+    291a:	4e 94 00 07 	bgez $r9,0x2928            ;
     291e:	14 40 80 08 	swi $r4,[$r1+#0x20]
     2922:	04 90 80 08 	lwi $r9,[$r1+#0x20]
     2926:	d5 05       	j8 0x2930
@@ -4150,19 +4153,19 @@
     2f36:	12 2f 80 02 	shi $r2,[$sp+#0x4]
     2f3a:	b6 5f       	swi450 $r2,[$sp]
     2f3c:	85 09       	movi55 $r8,#0x9
-    2f3e:	45 c0 51 18 	movi $fp,#0x5118
+    2f3e:	45 c0 51 18 	movi $fp,#0x5118       ; 0x5118 -> 0x2718
     2f42:	d5 05       	j8 0x2f4c
     2f44:	4e 82 00 1c 	beqz $r8,0x2f7c
     2f48:	40 80 80 10 	seb $r8,$r1
     2f4c:	44 00 00 14 	movi $r0,#0x14
     2f50:	49 00 09 86 	jal 0x425c
-    2f54:	dd 3c       	jral5 $fp
+    2f54:	dd 3c       	jral5 $fp              ;
     2f56:	80 07       	mov55 $r0,$r7
     2f58:	49 ff fc 1a 	jal 0x278c
     2f5c:	80 1f       	mov55 $r0,$sp
     2f5e:	49 ff fc 6d 	jal 0x2838
     2f62:	a4 30       	lhi333 $r0,[$r6+#0x0]
-    2f64:	44 20 87 f0 	movi $r2,#0x87f0
+    2f64:	44 20 87 f0 	movi $r2,#0x87f0       ; TODO: what's special about 0x87f0 / 1000 0111 1111 0000
     2f68:	50 14 7f ff 	addi $r1,$r8,#-1
     2f6c:	4c 01 7f ec 	bne $r0,$r2,0x2f44
     2f70:	a4 b1       	lhi333 $r2,[$r6+#0x2]
@@ -4576,23 +4579,24 @@
     33f6:	48 00 36 57 	j 0xa0a4               ; memcpy(void *dest=$gp-216, void *src=addr1+2, size_t n=6); return
     33fa:	dd 9e       	ret5 $lp
 
-    ; ----------- 0x33fc: what the FUCK is going on
+    ; ----------- 0x33fc: handle_timer1_tick()
+    ; ----------- Caution: LOTS OF SHITTY MATH AHEAD :<
     33fc:	3a 6f aa bc 	smw.adm $r6,[$sp],$r10,#0xa    ! {$r6~$r10, $fp, $lp}
     3400:	ef bc       	addi10.sp #-68
-    3402:	2e 07 ff e9 	lbi.gp $r0,[+#-23]
-    3406:	9c 01       	addi333 $r0,$r0,#0x1
-    3408:	55 e0 00 07 	andi $lp,$r0,#0x7
-    340c:	40 2f 18 08 	slli $r2,$lp,#0x6
-    3410:	f2 82       	swi37.sp $r2,[+#0x8]
-    3412:	3e a8 01 00 	addi.gp $r10,#0x100
-    3416:	40 75 08 00 	add $r7,$r10,$r2
-    341a:	01 c3 80 02 	lbi $fp,[$r7+#0x2]
-    341e:	a7 7b       	lbi333 $r5,[$r7+#0x3]
-    3420:	00 93 80 00 	lbi $r9,[$r7+#0x0]
-    3424:	40 1f 10 08 	slli $r1,$lp,#0x4
-    3428:	15 cf 80 03 	swi $fp,[$sp+#0xc]
-    342c:	9d 09       	addi333 $r4,$r1,#0x1
-    342e:	94 62       	slli333 $r1,$r4,#0x2
+    3402:	2e 07 ff e9 	lbi.gp $r0,[+#-23]     ; $r0 = [$gp-23] (tick_ring_idx)
+    3406:	9c 01       	addi333 $r0,$r0,#0x1   ; $r0++
+    3408:	55 e0 00 07 	andi $lp,$r0,#0x7      ; $lp = $r0 & 0b111 = tick_ring_idx % 8
+    340c:	40 2f 18 08 	slli $r2,$lp,#0x6      ; $r2 = $lp << 6 = (tick_ring_idx%8) * 0x40
+    3410:	f2 82       	swi37.sp $r2,[+#0x8]   ; [$sp+0x8] = (tick_ring_idx % 8) * 0x40
+    3412:	3e a8 01 00 	addi.gp $r10,#0x100    ; $r10 = $gp+0x100
+    3416:	40 75 08 00 	add $r7,$r10,$r2       ; $r7 = tick_slot = $gp+0x100 + (tick_ring_idx % 8) * 0x40
+    341a:	01 c3 80 02 	lbi $fp,[$r7+#0x2]     ; $fp = tick_slot[2]
+    341e:	a7 7b       	lbi333 $r5,[$r7+#0x3]  ; $r5 = tick_slot[3]
+    3420:	00 93 80 00 	lbi $r9,[$r7+#0x0]     ; $r9 = tick_slot[0]
+    3424:	40 1f 10 08 	slli $r1,$lp,#0x4      ; $r1 = (tick_ring_idx * 0x10)
+    3428:	15 cf 80 03 	swi $fp,[$sp+#0xc]     ; [$sp+0xc] = tick_slot[2]
+    342c:	9d 09       	addi333 $r4,$r1,#0x1   ; $r4 = (tick_ring_idx*0x10)+1
+    342e:	94 62       	slli333 $r1,$r4,#0x2   ; $r1 = ((tick_ring_idx*0x10)+1) * 4
     3430:	38 45 12 00 	lb $r4,[$r10+($r4<<#0x2)]
     3434:	04 8f 80 02 	lwi $r8,[$sp+#0x8]
     3438:	f4 84       	swi37.sp $r4,[+#0x10]
@@ -4711,7 +4715,7 @@
     3588:	13 c3 00 09 	shi $fp,[$r6+#0x12]
     358c:	12 03 00 0b 	shi $r0,[$r6+#0x16]
     3590:	12 13 00 0c 	shi $r1,[$r6+#0x18]
-    3594:	3f e7 ff e9 	sbi.gp $lp,[+#-23]
+    3594:	3f e7 ff e9 	sbi.gp $lp,[+#-23]     ; [$gp-23] = $lp
     3598:	12 83 00 0d 	shi $r8,[$r6+#0x1a]
     359c:	89 2a       	add45 $r9,$r10
     359e:	a6 92       	lbi333 $r2,[$r2+#0x2]
@@ -4931,7 +4935,7 @@
     3842:	12 23 00 2f 	shi $r2,[$r6+#0x5e]
     3846:	12 13 00 2e 	shi $r1,[$r6+#0x5c]
     384a:	80 06       	mov55 $r0,$r6
-    384c:	49 ff f8 50 	jal 0x28ec
+    384c:	49 ff f8 50 	jal 0x28ec             ; timer1_tick_sub1($gp+0x57c)
     3850:	2e 07 ff e9 	lbi.gp $r0,[+#-23]
     3854:	44 60 cd 20 	movi $r6,#0xcd20
     3858:	9c 07       	addi333 $r0,$r0,#0x7
@@ -4940,7 +4944,7 @@
     3860:	38 13 83 02 	lw $r1,[$r7+($r0<<#0x3)]
     3864:	38 03 03 02 	lw $r0,[$r6+($r0<<#0x3)]
     3868:	14 10 00 08 	swi $r1,[$r0+#0x20]
-    386c:	49 ff f8 2a 	jal 0x28c0
+    386c:	49 ff f8 2a 	jal 0x28c0             ; timer1_tick_sub2
     3870:	2e 07 ff e9 	lbi.gp $r0,[+#-23]
     3874:	38 13 83 02 	lw $r1,[$r7+($r0<<#0x3)]
     3878:	38 03 03 02 	lw $r0,[$r6+($r0<<#0x3)]
